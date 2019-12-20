@@ -107,7 +107,7 @@ func NewSPI(p spi.Port, dc gpio.PinOut, opts *Opts) (*Dev, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newDev(c, opts, true, dc)
+	return newDev(c, opts, dc)
 }
 
 
@@ -116,9 +116,8 @@ type Dev struct {
 	// Communication
 	c   conn.Conn
 	dc  gpio.PinOut
-	spi bool
 
-	// Display size controlled by the SSD1306.
+	// Display size controlled by the SSD1322.
 	rect image.Rectangle
 
 	// Mutable
@@ -139,7 +138,7 @@ type Dev struct {
 
 func (d *Dev) String() string {
 
-	return fmt.Sprintf("ssd1360.Dev{%s, %s, %s}", d.c, d.dc, d.rect.Max)
+	return fmt.Sprintf("ssd1322.Dev{%s, %s, %s}", d.c, d.dc, d.rect.Max)
 
 }
 
@@ -184,7 +183,7 @@ func (d *Dev) Draw(r image.Rectangle, src image.Image, sp image.Point) error {
 // This function accepts the content of image1bit.VerticalLSB.Pix.
 func (d *Dev) Write(pixels []byte) (int, error) {
 	if len(pixels) != len(d.buffer) {
-		return 0, fmt.Errorf("ssd1306: invalid pixel stream length; expected %d bytes, got %d bytes", len(d.buffer), len(pixels))
+		return 0, fmt.Errorf("ssd1322: invalid pixel stream length; expected %d bytes, got %d bytes", len(d.buffer), len(pixels))
 	}
 	// Write() skips d.next so it saves 1kb of RAM.
 	if err := d.drawInternal(pixels); err != nil {
@@ -266,19 +265,18 @@ func (d *Dev) Invert(blackOnWhite bool) error {
 
 // newDev is the common initialization code that is independent of the
 // communication protocol (I²C or SPI) being used.
-func newDev(c conn.Conn, opts *Opts, usingSPI bool, dc gpio.PinOut) (*Dev, error) {
-	if opts.W < 8 || opts.W > 128 || opts.W&7 != 0 {
-		return nil, fmt.Errorf("ssd1306: invalid width %d", opts.W)
+func newDev(c conn.Conn, opts *Opts, dc gpio.PinOut) (*Dev, error) {
+	if opts.W < 8 || opts.W > 480 || opts.W&7 != 0 {
+		return nil, fmt.Errorf("ssd1322: invalid width %d", opts.W)
 	}
-	if opts.H < 8 || opts.H > 64 || opts.H&7 != 0 {
-		return nil, fmt.Errorf("ssd1306: invalid height %d", opts.H)
+	if opts.H < 8 || opts.H > 128 || opts.H&7 != 0 {
+		return nil, fmt.Errorf("ssd1322: invalid height %d", opts.H)
 	}
 
 	nbPages := opts.H / 8
 	pageSize := opts.W
 	d := &Dev{
 		c:         c,
-		spi:       usingSPI,
 		dc:        dc,
 		rect:      image.Rect(0, 0, opts.W, opts.H),
 		buffer:    make([]byte, nbPages*pageSize),
@@ -441,14 +439,13 @@ func (d *Dev) sendData(c []byte) error {
 			return err
 		}
 	}
-	if d.spi {
-		// 4-wire SPI.
-		if err := d.dc.Out(gpio.High); err != nil {
-			return err
-		}
-		return d.c.Tx(c, nil)
+
+	// 4-wire SPI.
+	if err := d.dc.Out(gpio.High); err != nil {
+		return err
 	}
-	return d.c.Tx(append([]byte{i2cData}, c...), nil)
+	return d.c.Tx(c, nil)
+
 }
 
 func (d *Dev) sendCommand(c []byte) error {
@@ -460,7 +457,7 @@ func (d *Dev) sendCommand(c []byte) error {
 
 	if d.dc == nil {
 		// 3-wire SPI.
-		return errors.New("ssd1306: 3-wire SPI mode is not yet implemented")
+		return errors.New("ssd1322: 3-wire SPI mode is not yet implemented")
 	}
 	// 4-wire SPI.
 	if err := d.dc.Out(gpio.Low); err != nil {
