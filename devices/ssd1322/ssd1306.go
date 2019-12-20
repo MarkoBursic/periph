@@ -2,7 +2,7 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-package ssd1306
+package ssd1322
 
 // Some have SPI enabled;
 // https://hallard.me/adafruit-oled-display-driver-for-pi/
@@ -19,10 +19,9 @@ import (
 	"periph.io/x/periph/conn"
 	"periph.io/x/periph/conn/display"
 	"periph.io/x/periph/conn/gpio"
-	"periph.io/x/periph/conn/i2c"
 	"periph.io/x/periph/conn/physic"
 	"periph.io/x/periph/conn/spi"
-	"periph.io/x/periph/devices/ssd1306/image1bit"
+	"periph.io/x/periph/devices/ssd1322/image1bit"
 )
 
 // FrameRate determines scrolling speed.
@@ -54,7 +53,7 @@ const (
 
 // DefaultOpts is the recommended default options.
 var DefaultOpts = Opts{
-	W:             128,
+	W:             256,
 	H:             64,
 	Rotated:       false,
 	Sequential:    false,
@@ -77,10 +76,10 @@ type Opts struct {
 	SwapTopBottom bool
 }
 
-// NewSPI returns a Dev object that communicates over SPI to a SSD1306 display
+// NewSPI returns a Dev object that communicates over SPI to a SSD1322 display
 // controller.
 //
-// The SSD1306 can operate at up to 3.3Mhz, which is much higher than I²C. This
+// The SSD1322 can operate at up to 3.3Mhz, which is much higher than I²C. This
 // permits higher refresh rates.
 //
 // Wiring
@@ -111,12 +110,6 @@ func NewSPI(p spi.Port, dc gpio.PinOut, opts *Opts) (*Dev, error) {
 	return newDev(c, opts, true, dc)
 }
 
-// NewI2C returns a Dev object that communicates over I²C to a SSD1306 display
-// controller.
-func NewI2C(i i2c.Bus, opts *Opts) (*Dev, error) {
-	// Maximum clock speed is 1/2.5µs = 400KHz.
-	return newDev(&i2c.Dev{Bus: i, Addr: 0x3C}, opts, false, nil)
-}
 
 // Dev is an open handle to the display controller.
 type Dev struct {
@@ -145,10 +138,9 @@ type Dev struct {
 }
 
 func (d *Dev) String() string {
-	if d.spi {
-		return fmt.Sprintf("ssd1360.Dev{%s, %s, %s}", d.c, d.dc, d.rect.Max)
-	}
-	return fmt.Sprintf("ssd1360.Dev{%s, %s}", d.c, d.rect.Max)
+
+	return fmt.Sprintf("ssd1360.Dev{%s, %s, %s}", d.c, d.dc, d.rect.Max)
+
 }
 
 // ColorModel implements display.Drawer.
@@ -465,18 +457,17 @@ func (d *Dev) sendCommand(c []byte) error {
 		c = append([]byte{0xAF}, c...)
 		d.halted = false
 	}
-	if d.spi {
-		if d.dc == nil {
-			// 3-wire SPI.
-			return errors.New("ssd1306: 3-wire SPI mode is not yet implemented")
-		}
-		// 4-wire SPI.
-		if err := d.dc.Out(gpio.Low); err != nil {
-			return err
-		}
-		return d.c.Tx(c, nil)
+
+	if d.dc == nil {
+		// 3-wire SPI.
+		return errors.New("ssd1306: 3-wire SPI mode is not yet implemented")
 	}
-	return d.c.Tx(append([]byte{i2cCmd}, c...), nil)
+	// 4-wire SPI.
+	if err := d.dc.Out(gpio.Low); err != nil {
+		return err
+	}
+	return d.c.Tx(c, nil)
+
 }
 
 const (
