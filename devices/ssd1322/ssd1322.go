@@ -314,7 +314,7 @@ func getInitCmd(opts *Opts) []byte {
 	// Set the max frequency. The problem with I²C is that it creates visible
 	// tear down. On SPI at high speed this is not visible. Page 23 pictures how
 	// to avoid tear down. For now default to max frequency.
-	freq := byte(0xF0)
+	div_freq := byte(0x91) //ER-OLED32 = 0x91
 
 	// Initialize the device by fully resetting all values.
 	// Page 64 has the full recommended flow.
@@ -339,6 +339,32 @@ func getInitCmd(opts *Opts) []byte {
 		0x21, 0, uint8(opts.W - 1), // Set column address (Width)
 		0x22, 0, uint8(opts.H/8 - 1), // Set page address (Pages)
 		0xAF, // Display on
+		
+		
+		0xFD, 0x12,    			// Unlock IC
+		0xAE,      			// Display off (all pixels off)
+		0xB3, div_freq,      		// Display divide clockratio/freq , ER-OLED32 = 0x91
+		0xCA, uint8(opts.H - 1),     	// Set MUX ratio, ER-OLED32 = 0x3F
+		0xA2, 0x00,     		// Display offset
+		0xA1, 0x00      		// Display start Line
+		0xA0, 0x14, 0x11  		// Set remap & dual COM Line
+		0xB5, 0x00,        		// Set GPIO (disabled)
+		0xAB, 0x01,        		// Function select (internal Vdd)
+		0xB4, 0xA0, 0xFD,  		// Display enhancement A (External VSL) ??????
+		0xC1, 0x80,			// Set contrast current
+		0xC7, 0x0F,        		// Master contrast (reset)
+		0xB9,              		// Set default greyscale table
+		0xB1, 0xE2,        		// Phase length
+		0xD1, 0x82, 0x20,  		// Display enhancement B (reset) ?????
+		0xBB, 0x1F,        		// Pre-charge voltage
+		0xB6, 0x08,        		// 2nd precharge period
+		0xBE, 0x07,        		// Set VcomH
+		0xA6,              		// Normal display (reset)
+		0xAF,              		// display ON		
+		
+		
+		
+		
 	}
 }
 
